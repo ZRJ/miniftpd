@@ -35,7 +35,9 @@ int main() {
         // 控制连接
         0, -1, "", "", "",
         // 父子通道
-        -1, -1
+        -1, -1,
+        // FTP 协议状态
+        0
     };
 
     int listenfd = tcp_server(NULL, 5188);
