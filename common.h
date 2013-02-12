@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <pwd.h>
+#include <shadow.h>
+#include <crypt.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/socket.h>
