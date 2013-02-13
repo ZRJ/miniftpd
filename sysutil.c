@@ -70,6 +70,7 @@ int tcp_client(unsigned short port) {
  }
 
  int getlocalip(char *ip) {
+    /*
      char host[100] = {0};
      if (gethostname(host, sizeof(host)) < 0) {
          return -1;
@@ -79,7 +80,21 @@ int tcp_client(unsigned short port) {
          return -1;
      }
      strcpy(ip, inet_ntoa(*(struct in_addr*)hp->h_addr));
-     return 0;
+     return 0;*/
+     int sockfd; 
+    if(-1 == (sockfd = socket(PF_INET, SOCK_STREAM, 0))) {
+        perror( "socket" );
+        return -1;
+    }
+    struct ifreq req;
+    struct sockaddr_in *host;
+    bzero(&req, sizeof(struct ifreq));
+    strcpy(req.ifr_name, "eth0"); 
+    ioctl(sockfd, SIOCGIFADDR, &req);
+    host = (struct sockaddr_in*)&req.ifr_addr;
+    strcpy(ip, inet_ntoa(host->sin_addr));
+    close(sockfd);
+    return 1;
  }
 
  /**

@@ -18,6 +18,9 @@
 #include <dirent.h>
 #include <sys/time.h>
 
+#include <net/if.h>
+#include <sys/ioctl.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
