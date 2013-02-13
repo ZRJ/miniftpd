@@ -3,8 +3,11 @@
 #include "session.h"
 #include "tunable.h"
 #include "parseconf.h"
+#include "ftpproto.h"
 
 int main() {
+    list_common();
+    exit(EXIT_SUCCESS);
     if (getuid() != 0) {
         fprintf(stderr, "miniftpd must be started as root\n");
         exit(EXIT_FAILURE);
