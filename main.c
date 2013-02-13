@@ -6,8 +6,6 @@
 #include "ftpproto.h"
 
 int main() {
-    list_common();
-    exit(EXIT_SUCCESS);
     if (getuid() != 0) {
         fprintf(stderr, "miniftpd must be started as root\n");
         exit(EXIT_FAILURE);
@@ -37,6 +35,8 @@ int main() {
     session_t sess = {
         // 控制连接
         0, -1, "", "", "",
+        // 数据连接 
+        NULL, -1,
         // 父子通道
         -1, -1,
         // FTP 协议状态
