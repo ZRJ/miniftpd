@@ -13,6 +13,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <linux/capability.h>
+#include <sys/syscall.h>
 
 #include <time.h>
 #include <sys/stat.h>
