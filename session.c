@@ -1,40 +1,21 @@
 #include "session.h"
 #include "privparent.h"
 #include "ftpproto.h"
+#include "privsock.h"
 
 void begin_session(session_t *sess) {
-    struct passwd *pw = getpwnam("nobody");
-    if (pw == NULL) {
-        return;
-    }
-
-    int sockfds[2];
-    if (socketpair(PF_UNIX, SOCK_STREAM, 0, sockfds) < 0) {
-        ERR_EXIT("socketpair");
-    }
-
+    priv_sock_init(sess);
     pid_t pid = fork();
     if (pid < 0) {
         ERR_EXIT("fork");
     }
     if (pid == 0) {
         // FTP 服务进程
-        close(sockfds[0]);
-        sess->child_fd = sockfds[1];
+        priv_sock_set_child_context(sess);
         handle_child(sess);
     } else {
         // nobody 进程
-
-        // 把当前进程用户设置为 nobody 用户
-        if (setegid(pw->pw_gid) < 0) {
-            ERR_EXIT("setegid");
-        }
-        if (seteuid(pw->pw_uid) < 0) {
-            ERR_EXIT("seteuid");
-        }
-    
-        close(sockfds[1]);
-        sess->parent_fd = sockfds[0];
+        priv_sock_set_parent_context(sess);
         handle_parent(sess);
     }
 }

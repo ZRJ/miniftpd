@@ -43,6 +43,7 @@ int main() {
         0
     };
 
+    signal(SIGCHLD, SIG_IGN);
     int listenfd = tcp_server(NULL, 5188);
     int conn;
     pid_t pid;
