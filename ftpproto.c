@@ -7,10 +7,14 @@
 
 void ftp_reply(session_t *sess, int status, const char *text);
 void ftp_lreply(session_t *sess, int status, const char *text);
-int get_transfer_fd(session_t *sess);
+
 int list_common(session_t *sess);
+int get_port_fd(session_t *sess);
+int get_pasv_fd(session_t *sess);
+int get_transfer_fd(session_t *sess);
 int port_active(session_t *sess);
 int pasv_active(session_t *sess);
+
 static void do_user(session_t *sess);
 static void do_pass(session_t *sess);
 static void do_cwd(session_t *sess);
@@ -268,7 +272,9 @@ int port_active(session_t *sess) {
 }
 
 int pasv_active(session_t *sess) {
-    if (sess->pasv_listen_fd != -1) {
+    priv_sock_send_cmd(sess->child_fd, PRIV_SOCK_PASV_ACTIVE);
+    int active = priv_sock_get_int(sess->child_fd);
+    if (active) {
         if (port_active(sess)) {
             fprintf(stderr, "both port and pasv are actived\n");
             exit(EXIT_FAILURE);
@@ -299,6 +305,17 @@ int get_port_fd(session_t *sess) {
     return 1;
 }
 
+int get_pasv_fd(session_t *sess) {
+    priv_sock_send_cmd(sess->child_fd, PRIV_SOCK_PASV_ACCEPT);
+    char res = priv_sock_get_result(sess->child_fd);
+    if (res == PRIV_SOCK_RESULT_BAD) {
+        return 0;
+    } else if (res == PRIV_SOCK_RESULT_OK) {
+        sess->data_fd = priv_sock_recv_fd(sess->child_fd);
+    }
+    return 1;
+}
+
 int get_transfer_fd(session_t *sess) {
     if ( ! port_active(sess) && ! pasv_active(sess)) {
         ftp_reply(sess, FTP_BADSENDCONN, "Use PORT or PASV first.");
@@ -318,12 +335,9 @@ int get_transfer_fd(session_t *sess) {
 
     // 如果是服务器端被动模式
     if (pasv_active(sess)) {
-        int fd = accept_timeout(sess->pasv_listen_fd, NULL, tunable_accept_timeout);
-        close(sess->pasv_listen_fd);
-        if (fd == -1) {
-            return 0;
+        if (get_pasv_fd(sess) == 0) {
+            ret = 0;
         }
-        sess->data_fd = fd;
     }
 
     return ret;
@@ -403,13 +417,10 @@ static void do_port(session_t *sess) {
 static void do_pasv(session_t *sess) {
     char ip[16] = {0};
     getlocalip(ip);
-    sess->pasv_listen_fd = tcp_server(ip, 0);
-    struct sockaddr_in addr;
-    socklen_t addrlen = sizeof(addr);
-    if (getsockname(sess->pasv_listen_fd, (struct sockaddr *)&addr, &addrlen) < 0) {
-        ERR_EXIT("getsockname");
-    }
-    unsigned short port = ntohs(addr.sin_port);
+    
+    priv_sock_send_cmd(sess->child_fd, PRIV_SOCK_PASV_LISTEN);
+    unsigned short port = (int)priv_sock_get_int(sess->child_fd);
+
     unsigned int v[4];
     sscanf(ip, "%u.%u.%u.%u", &v[0], &v[1], &v[2], &v[3]);
     char text[1024] = {0};
