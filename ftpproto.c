@@ -318,7 +318,11 @@ static void do_pass(session_t *sess) {
 }
 
 static void do_cwd(session_t *sess) {
-
+    if (chdir(sess->arg) < 0) {
+        ftp_reply(sess, FTP_FILEFAIL, "Failed to change directory.");
+        return;
+    }
+    ftp_reply(sess, FTP_CWDOK, "Directory successfully changed.");
 }
 
 static void do_cdup(session_t *sess) {
