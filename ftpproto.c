@@ -490,11 +490,23 @@ static void do_dele(session_t *sess) {
 }
 
 static void do_rnfr(session_t *sess) {
-
+    sess->rnfr_name = (char *)malloc(strlen(sess->arg) + 1);
+    memset(sess->rnfr_name, 0, strlen(sess->arg) + 1);
+    strcpy(sess->rnfr_name, sess->arg);
+    ftp_reply(sess, FTP_RNFROK, "Ready for RNTO.");
 }
 
 static void do_rnto(session_t *sess) {
+    if (sess->rnfr_name == NULL) {
+        ftp_reply(sess, FTP_NEEDRNFR, "RNFR required first.");
+        return;
+    }
+    rename(sess->rnfr_name, sess->arg);
 
+    ftp_reply(sess, FTP_RENAMEOK, "Rename successful.");
+
+    free(sess->rnfr_name);
+    sess->rnfr_name = NULL;
 }
 
 static void do_site(session_t *sess) {
