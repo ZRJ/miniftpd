@@ -445,6 +445,7 @@ static void do_retr(session_t *sess) {
     int flag = 0;
 
     // 下载文件
+    /* 方式1
     char buf[4096];
     while (1) {
         ret = read(fd, buf, sizeof(buf));
@@ -464,6 +465,26 @@ static void do_retr(session_t *sess) {
             flag = 2;
             break;
         }
+    }*/
+
+    // 方式2
+    long long byte_to_send = sbuf.st_size;
+    if (offset > byte_to_send) {
+        byte_to_send = 0;
+    } else {
+        byte_to_send -= offset;
+    }
+    while (byte_to_send) {
+        int num_this_time = byte_to_send > 4096 ? 4096 : byte_to_send;
+        ret = sendfile(sess->data_fd, fd, NULL, num_this_time);
+        if (ret == -1) {
+            flag = 2;
+            break;
+        }
+        byte_to_send -= ret;
+    }
+    if (byte_to_send == 0) {
+        flag = 0;
     }
 
     // 关闭套接字
