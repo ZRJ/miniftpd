@@ -478,7 +478,12 @@ static void do_rmd(session_t *sess) {
 }
 
 static void do_dele(session_t *sess) {
+    if (unlink(sess->arg) < 0) {
+        ftp_reply(sess, FTP_FILEFAIL, "Delete operation failed.");
+        return;
+    }
 
+    ftp_reply(sess, FTP_DELEOK, "Delete operation successful.");
 }
 
 static void do_rnfr(session_t *sess) {
