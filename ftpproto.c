@@ -519,7 +519,18 @@ static void do_feat(session_t *sess) {
 }
 
 static void do_size(session_t *sess) {
-
+    struct stat buf;
+    if (stat(sess->arg, &buf) < 0) {
+        ftp_reply(sess, FTP_FILEFAIL, "SIZE operation failed.");
+        return;
+    }
+    if ( ! S_ISREG(buf.st_mode)) {
+        ftp_reply(sess, FTP_FILEFAIL, "Could not get file size.");
+        return;
+    }
+    char text[1024] = {0};
+    sprintf(text, "%lld", (long long)buf.st_size);
+    ftp_reply(sess, FTP_SIZEOK, text);
 }
 
 static void do_stat(session_t *sess) {
