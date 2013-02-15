@@ -313,6 +313,8 @@ static void do_pass(session_t *sess) {
     seteuid(pw->pw_uid);
     // 改变工作目录为 home 目录
     chdir(pw->pw_dir);
+    // 修改 umask
+    umask(tunable_local_umask);
 
     ftp_reply(sess, FTP_LOGINOK, "Login successful.");
 }
@@ -449,7 +451,23 @@ static void do_pwd(session_t *sess) {
 }
 
 static void do_mkd(session_t *sess) {
-
+    if (mkdir(sess->arg, 0777) < 0) {
+        ftp_reply(sess, FTP_FILEFAIL, "Create directory operation failed.");
+        return;
+    }
+    char text[4096] = {0};
+    if (sess->arg[0] == '/') {
+        sprintf(text, "%s created", sess->arg);
+    } else {
+        char dir[4096+1] = {0};
+        getcwd(dir, 4096);
+        if (dir[strlen(dir)-1] == '/') {
+            sprintf(text, "%s%s created", dir, sess->arg);
+        } else {
+            sprintf(text, "%s/%s created", dir, sess->arg);
+        }
+    }
+    ftp_reply(sess, FTP_MKDIROK, text);
 }
 
 static void do_rmd(session_t *sess) {
