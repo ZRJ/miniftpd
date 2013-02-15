@@ -563,3 +563,17 @@ const char* statbuf_get_date(struct stat *sbuf) {
     strftime(datebuf, sizeof(datebuf), p_date_format, p_tm);
     return datebuf;
 }
+
+int lock_file_read(int fd) {
+    int ret;
+    struct flock the_lock;
+    memset(&the_lock, 0, sizeof(the_lock));
+    the_lock.l_type = F_RDLCK;
+    the_lock.l_whence = SEEK_SET;
+    the_lock.l_start = 0;
+    the_lock.l_len = 0;
+    do {
+        ret = fcntl(fd, F_SETLKW, &the_lock);
+    } while (ret < 0 && errno == EINTR);
+    return ret;
+}

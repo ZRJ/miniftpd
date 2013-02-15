@@ -393,7 +393,93 @@ static void do_mode(session_t *sess) {
 }
 
 static void do_retr(session_t *sess) {
+    // 下载文件和断点续传
+    if (get_transfer_fd(sess) == 0) {
+        return;
+    }
 
+    long long offset = sess->restart_pos;
+    sess->restart_pos = 0;
+
+    // 打开文件
+    int fd = open(sess->arg, O_RDONLY);
+    if (fd == -1) {
+        ftp_reply(sess, FTP_FILEFAIL, "Failed to open file.");
+        return;
+    }
+
+    // 加锁
+    int ret = lock_file_read(fd);
+    if (ret == -1) {
+        ftp_reply(sess, FTP_FILEFAIL, "Failed to open file.");
+        return;
+    }
+
+    // 判断是否普通文件
+    struct stat sbuf;
+    ret = fstat(fd, &sbuf);
+    if ( ! S_ISREG(sbuf.st_mode)) {
+        ftp_reply(sess, FTP_FILEFAIL, "Failed to open file.");
+        return;
+    }
+
+    if (offset != 0) {
+        ret = lseek(fd, offset, SEEK_SET);
+        if (ret == -1) {
+            ftp_reply(sess, FTP_FILEFAIL, "Failed to open file.");
+            return;
+        }
+    }
+
+    char text[1024] = {0};
+    if (sess->is_ascii) {
+        sprintf(text, "Opening ASCII mode data connection for %s (%lld bytes).",
+            sess->arg, (long long)sbuf.st_size);
+    } else {
+        sprintf(text, "Opening BINARY mode data connection for %s (%lld bytes).",
+            sess->arg, (long long)sbuf.st_size);
+    }
+
+    ftp_reply(sess, FTP_DATACONN, text);
+
+    int flag = 0;
+
+    // 下载文件
+    char buf[4096];
+    while (1) {
+        ret = read(fd, buf, sizeof(buf));
+        if (ret == -1) {
+            if (errno == EINTR) {
+                continue;
+            } else {
+                flag = 1;
+                break;
+            }
+        } else if (ret == 0) {
+            flag = 0;
+            break;
+        }
+
+        if (writen(sess->data_fd, buf, ret) != ret) {
+            flag = 2;
+            break;
+        }
+    }
+
+    // 关闭套接字
+    close(sess->data_fd);
+    sess->data_fd = -1;
+    
+    if (flag == 0) {
+        // 226
+        ftp_reply(sess, FTP_TRANSFEROK, "Transfer complete.");
+    } else if (flag == 1) {
+        // 426
+        ftp_reply(sess, FTP_BADSENDFILE, "Failure reading from local file.");
+    } else if (flag == 2) {
+        // 451
+        ftp_reply(sess, FTP_BADSENDNET, "Failure writting to network stream.");
+    }
 }
 
 static void do_stor(session_t *sess) {
