@@ -37,11 +37,16 @@ int main() {
         0, -1, "", "", "",
         // 数据连接 
         NULL, -1, -1,
+        // 限速
+        0, 0, 0, 0,
         // 父子通道
         -1, -1,
         // FTP 协议状态
         0, 0, NULL
     };
+
+    sess.bw_upload_rate_max = tunable_upload_max_rate;
+    sess.bw_download_rate_max = tunable_download_max_rate;
 
     signal(SIGCHLD, SIG_IGN);
     int listenfd = tcp_server(NULL, 5188);
