@@ -8,6 +8,10 @@
 void ftp_reply(session_t *sess, int status, const char *text);
 void ftp_lreply(session_t *sess, int status, const char *text);
 
+void handle_alarm_timeout(int sig);
+void start_cmdio_alarm(void);
+void start_data_alarm(void);
+
 int list_common(session_t *sess, int detail);
 void limit_rate(session_t *sess, int byte_transfered, int is_upload);
 void upload_common(session_t *sess, int is_append);
@@ -102,6 +106,47 @@ static ftpcmd_t ctrl_cmds[] = {
     {"ALLO",    NULL    }
 };
 
+session_t *p_sess;
+
+void handle_alarm_timeout(int sig) {
+    shutdown(p_sess->ctrl_fd, SHUT_RD);
+    ftp_reply(p_sess, FTP_IDLE_TIMEOUT, "Timeout.");
+    shutdown(p_sess->ctrl_fd, SHUT_WR);
+    exit(EXIT_FAILURE);
+}
+
+void handle_sigalrm(int sig) {
+    if ( ! p_sess->data_process) {
+        ftp_reply(p_sess, FTP_DATA_TIMEOUT, "Data timeout. Reconnect. Sorry.");
+        exit(EXIT_FAILURE);
+    }
+    // 否则，当前处于数据传输的时候收到了超时信号
+    p_sess->data_process = 0;
+    start_data_alarm();
+}
+
+
+void start_cmdio_alarm() {
+    if (tunable_idle_session_timeout > 0) {
+        // 安装信号
+        signal(SIGALRM, handle_alarm_timeout);
+        // 启动闹钟
+        alarm(tunable_idle_session_timeout);
+    }
+}
+
+void start_data_alarm() {
+    if (tunable_data_connection_timeout > 0) {
+        // 安装信号
+        signal(SIGALRM, handle_sigalrm);
+        // 启动闹钟
+        alarm(tunable_data_connection_timeout);
+    } else if (tunable_idle_session_timeout > 0) {
+        // 关闭闹钟 
+        alarm(0);
+    }
+}
+
 void handle_child(session_t *sess) {
     ftp_reply(sess, FTP_GREET, "(miniftpd 0.1)");
     int ret;
@@ -109,6 +154,9 @@ void handle_child(session_t *sess) {
         memset(sess->cmdline, 0, sizeof(sess->cmdline));
         memset(sess->cmd, 0, sizeof(sess->cmd));
         memset(sess->arg, 0, sizeof(sess->arg));
+
+        start_cmdio_alarm();
+
         ret = readline(sess->ctrl_fd, sess->cmdline, MAX_COMMAND_LINE);
         if (ret == -1) {
             ERR_EXIT("readline");
@@ -184,15 +232,17 @@ int list_common(session_t *sess, int detail) {
 }
 
 void limit_rate(session_t *sess, int byte_transfered, int is_upload) {
+    sess->data_process = 1;
+
     // 睡眠时间 = (当前传输速度 / 最大传输速度 – 1) * 当前传输时间;
     long cur_sec = get_time_sec();
     long cur_usec = get_time_usec();
 
     double elapsed;
-    elapsed = cur_sec - sess->bw_transfer_start_sec;
+    elapsed = (double)(curr_sec - sess->bw_transfer_start_sec); 
     elapsed += (double)(cur_usec - sess->bw_transfer_start_usec) / (double)1000000;
-    if (elapsed <= 0) {
-        elapsed = 0.01;
+    if (elapsed <= (double)0) {
+        elapsed = (double)0.01;
     }
 
     // 计算当前传输速度
@@ -202,12 +252,16 @@ void limit_rate(session_t *sess, int byte_transfered, int is_upload) {
     if (is_upload) {
         if (bw_rate <= sess->bw_upload_rate_max) {
             // 不需要限速
+            sess->bw_transfer_start_sec = cur_sec;
+            sess->bw_transfer_start_usec = cur_usec;
             return;
         }
         rate_ratio = bw_rate / sess->bw_upload_rate_max;
     } else {
         if (bw_rate <= sess->bw_download_rate_max) {
             // 不需要限速
+            sess->bw_transfer_start_sec = cur_sec;
+            sess->bw_transfer_start_usec = cur_usec;
             return;
         }
         rate_ratio = bw_rate / sess->bw_download_rate_max;
@@ -333,6 +387,9 @@ void upload_common(session_t *sess, int is_append) {
         // 451
         ftp_reply(sess, FTP_BADSENDNET, "Failure reading from network stream.");
     }
+
+    // 重新开启控制连接通道闹钟
+    start_cmdio_alarm();
 }
 
 void ftp_reply(session_t *sess, int status, const char *text) {
@@ -425,6 +482,11 @@ int get_transfer_fd(session_t *sess) {
         if (get_pasv_fd(sess) == 0) {
             ret = 0;
         }
+    }
+
+    if (ret) {
+        // 重新安装 SIGALRM 信号，并启动闹钟
+        start_data_alarm();
     }
 
     return ret;
@@ -663,6 +725,9 @@ static void do_retr(session_t *sess) {
         // 451
         ftp_reply(sess, FTP_BADSENDNET, "Failure writting to network stream.");
     }
+
+    // 重新开启控制连接通道闹钟
+    start_cmdio_alarm();
 }
 
 static void do_stor(session_t *sess) {

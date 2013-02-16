@@ -5,6 +5,8 @@
 #include "parseconf.h"
 #include "ftpproto.h"
 
+extern session_t *p_sess;
+
 int main() {
     if (getuid() != 0) {
         fprintf(stderr, "miniftpd must be started as root\n");
@@ -36,7 +38,7 @@ int main() {
         // 控制连接
         0, -1, "", "", "",
         // 数据连接 
-        NULL, -1, -1,
+        NULL, -1, -1, 0,
         // 限速
         0, 0, 0, 0,
         // 父子通道
@@ -44,6 +46,8 @@ int main() {
         // FTP 协议状态
         0, 0, NULL
     };
+
+    p_sess = &sess;
 
     sess.bw_upload_rate_max = tunable_upload_max_rate;
     sess.bw_download_rate_max = tunable_download_max_rate;
