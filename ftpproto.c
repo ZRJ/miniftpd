@@ -592,7 +592,8 @@ static void do_cdup(session_t *sess) {
 }
 
 static void do_quit(session_t *sess) {
-
+    ftp_reply(sess, FTP_GOODBYE, "Goodbye.");
+    exit(EXIT_SUCCESS);
 }
 
 static void do_port(session_t *sess) {
