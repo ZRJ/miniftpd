@@ -624,3 +624,21 @@ void nano_sleep(double seconds) {
         ret = nanosleep(&ts, &ts);
     } while (ret == -1 && errno == EINTR);
 }
+
+// 开启套接字 fd 接收带外数据的功能
+void activate_oobinline(int fd) {
+    int oob_inline = 1;
+    int ret = setsockopt(fd, SOL_SOCKET, SO_OOBINLINE, &oob_inline, sizeof(oob_inline));
+    if (ret == -1) {
+        ERR_EXIT("setsockopt");
+    }
+}
+
+// 当文件描述符 fd 上有带外数据时，将产生 SIGURG 信号
+// 该函数设定当前进程能够接收 fd 所产生的 SIGURG 信号
+void activate_sigurg(int fd) {
+    int ret = fcntl(fd, F_SETOWN, getuid());
+    if (ret == -1) {
+        ERR_EXIT("fcntl");
+    }
+}

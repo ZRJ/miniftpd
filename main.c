@@ -44,7 +44,7 @@ int main() {
         // 父子通道
         -1, -1,
         // FTP 协议状态
-        0, 0, NULL
+        0, 0, NULL, 0
     };
 
     p_sess = &sess;
