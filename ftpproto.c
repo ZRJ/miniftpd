@@ -924,7 +924,7 @@ static void do_stat(session_t *sess) {
 }
 
 static void do_noop(session_t *sess) {
-
+    ftp_reply(sess, FTP_NOOPOK, "NOOP ok.");
 }
 
 static void do_help(session_t *sess) {
