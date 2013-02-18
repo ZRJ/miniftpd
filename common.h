@@ -2,6 +2,7 @@
 #define _COMMON_H_
 
 #include <unistd.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <pwd.h>
 #include <shadow.h>
