@@ -56,6 +56,9 @@ static void do_stat(session_t *sess);
 static void do_noop(session_t *sess);
 static void do_help(session_t *sess);
 
+static void do_site_chmod(session_t *sess, char *chmod_arg);
+static void do_site_umask(session_t *sess, char *umask_arg);
+
 typedef struct ftpcmd {
     const char *cmd;
     void (*cmd_handler)(session_t *sess);
@@ -884,7 +887,20 @@ static void do_rnto(session_t *sess) {
 }
 
 static void do_site(session_t *sess) {
+    char cmd[100] = {0};
+    char arg[100] = {0};
 
+    str_split(sess->arg, cmd ,arg, ' ');
+
+    if (strcmp(cmd, "CHMOD") == 0) {
+        do_site_chmod(sess, arg);
+    } else if (strcmp(cmd, "UMASK") == 0) {
+        do_site_umask(sess, arg);
+    } else if (strcmp(cmd, "HELP") == 0) {
+        ftp_reply(sess, FTP_SITEHELP, "CHMOD UMASK HELP");
+    } else {
+         ftp_reply(sess, FTP_BADCMD, "Unknown SITE command.");
+    }
 }
 
 static void do_syst(session_t *sess) {
@@ -973,4 +989,42 @@ static void do_help(session_t *sess) {
         " XPWD XRMD\r\n",
         strlen(" XPWD XRMD\r\n"));
     ftp_reply(sess, FTP_HELP, "Help OK.");
+}
+
+static void do_site_chmod(session_t *sess, char *chmod_arg) {
+    if (strlen(chmod_arg) == 0) {
+        ftp_reply(sess, FTP_BADCMD, "SITE CHMOD needs 2 arguments.");
+        return;
+    }
+
+    char perm[100] = {0};
+    char file[100] = {0};
+    str_split(chmod_arg, perm, file, ' ');
+    if (strlen(file) == 0) {
+        ftp_reply(sess, FTP_BADCMD, "SITE CHMOD needs 2 arguments.");
+        return;
+    }
+
+    unsigned int mode = str_octal_to_uint(perm);
+    if (chmod(file, mode) < 0) {
+        ftp_reply(sess, FTP_CHMODOK, "SITE CHMOD command failed.");
+        return;
+    } else {
+        ftp_reply(sess, FTP_CHMODOK, "SITE CHMOD command ok.");
+        return;
+    }
+}
+
+static void do_site_umask(session_t *sess, char *umask_arg) {
+    if (strlen(umask_arg) == 0) {
+        char text[1024] = {0};
+        sprintf(text, "Your current UMASK is 0%o", tunable_local_umask);
+        ftp_reply(sess, FTP_UMASKOK, text);
+    } else {
+        unsigned int um = str_octal_to_uint(umask_arg);
+        umask(um);
+        char text[1024] = {0};
+        sprintf(text, "UMASK set to 0%o", um);
+        ftp_reply(sess, FTP_UMASKOK, text);
+    }
 }
