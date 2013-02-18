@@ -920,7 +920,38 @@ static void do_size(session_t *sess) {
 }
 
 static void do_stat(session_t *sess) {
+    ftp_lreply(sess, FTP_STATOK, "FTP server status:");
+    if (sess->bw_upload_rate_max == 0) {
+        char text[1024] = {0};
+        sprintf(text, "     No session upload bandwidth limit\r\n");
+        writen(sess->ctrl_fd, text, strlen(text));
+    } else if (sess->bw_upload_rate_max > 0) {
+        char text[1024] = {0};
+        sprintf(text, "     Session upload bandwidth limit in byte/s is %u\r\n",
+            sess->bw_upload_rate_max);
+        writen(sess->ctrl_fd, text, strlen(text));
+    }
 
+    if (sess->bw_download_rate_max == 0) {
+        char text[1024];
+        sprintf(text,
+            "     No session download bandwidth limit\r\n");
+        writen(sess->ctrl_fd, text, strlen(text));
+    } else if (sess->bw_download_rate_max > 0) {
+        char text[1024];
+        sprintf(text,
+            "     Session download bandwidth limit in byte/s is %u\r\n",
+            sess->bw_download_rate_max);
+        writen(sess->ctrl_fd, text, strlen(text));
+    }
+
+    char text[1024] = {0};
+    sprintf(text,
+        "     At session startup, client count was %u\r\n",
+        sess->num_clients);
+    writen(sess->ctrl_fd, text, strlen(text));
+    
+    ftp_reply(sess, FTP_STATOK, "End of status");
 }
 
 static void do_noop(session_t *sess) {
