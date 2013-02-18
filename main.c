@@ -28,6 +28,9 @@ int main() {
 
     parseconf_load_file(MINIFTP_CONF);
 
+    // 成为守护进程
+    daemon(0, 0);
+
     /*printf("tunable_pasv_enable=%d\n", tunable_pasv_enable);
     printf("tunable_port_enable=%d\n", tunable_port_enable);
 
